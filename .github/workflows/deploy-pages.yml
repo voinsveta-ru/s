@@ -19,8 +19,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # v7+ — рантайм Node 24 (Node 20 в Actions deprecated с 2026-06)
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Pages должны быть включены руками ОДИН раз (Settings → Pages →
       # Source: GitHub Actions). Создать сайт через API может только токен
@@ -40,13 +41,13 @@ jobs:
           fi
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
         with:
           # Довключит Pages, если сайт уже создан, но источник не указан
           enablement: true
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -64,17 +65,10 @@ jobs:
         run: node scripts/check.cjs
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

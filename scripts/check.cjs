@@ -300,7 +300,12 @@ if (!sitemapInRobots) fail("в robots.txt нет строки Sitemap:");
 else if (!sitemapUrls.includes(sitemapInRobots) && !sitemapInRobots.endsWith("sitemap.xml")) {
   fail(`robots.txt: Sitemap ${sitemapInRobots} не согласован с sitemap.xml`);
 }
-if (canonical && !html.includes(`href="${canonical}"`)) fail("canonical в index.html не совпадает с og:url");
+/* og:url обязан совпадать с canonical — раньше сверялось лишь наличие
+   самой ссылки canonical, и рассинхрон og:url проходил незамеченным */
+const ogUrl = meta("og:url");
+if (canonical && ogUrl && ogUrl !== canonical) {
+  fail(`og:url (${ogUrl}) не совпадает с canonical (${canonical}) — поисковики и соцсети увидят разные адреса`);
+}
 
 /*
  * Адрес сайта должен совпадать с тем путём, по которому сборка реально

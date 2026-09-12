@@ -116,9 +116,12 @@ export function ChatBot() {
     const timer = window.setTimeout(() => {
       timersRef.current.delete(timer);
       const rule = findChatAnswer(userText);
+      /* id считаем ДО апдейтера: в StrictMode он вызывается дважды,
+         и инкремент внутри него давал пропуски в нумерации */
+      const id = nextId.current++;
       setMessages((m) => [
         ...m,
-        { id: nextId.current++, from: "bot", text: rule.answer, chips: rule.chips },
+        { id, from: "bot", text: rule.answer, chips: rule.chips },
       ]);
       setTyping(false);
     }, delay);
@@ -128,7 +131,8 @@ export function ChatBot() {
   const sendUserText = (raw: string) => {
     const text = raw.trim();
     if (!text) return;
-    setMessages((m) => [...m, { id: nextId.current++, from: "user", text }]);
+    const id = nextId.current++;
+    setMessages((m) => [...m, { id, from: "user", text }]);
     setDraft("");
     reply(text);
   };
