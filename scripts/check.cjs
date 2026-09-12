@@ -50,7 +50,8 @@ function decodeEntities(text) {
   });
 }
 
-/** Все строковые литералы свойства (`id:"x"`, `href:`#x``, `src='x'`) */function props(source, prop) {
+/** Все строковые литералы свойства (`id:"x"`, `href:`#x``, `src='x'`) */
+function props(source, prop) {
   const out = [];
   const re = new RegExp(`${prop}\\s*[:=]\\s*(['"\`])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`, "g");
   let m;
@@ -151,8 +152,29 @@ for (const value of [...props(html, "href"), ...props(html, "src")]) {
   }
 }
 
-/* --------------- 3. пути к ассетам внутри JS/CSS-бандла --------------- */
+/* --------------- 2b. локальные ссылки из privacy.html --------------- */
 
+/*
+ * privacy.html отдаётся только по собственному адресу (404-fallback его не
+ * касается), поэтому относительные пути здесь работают. Но существование файлов
+ * проверить всё равно нужно: страница не должна остаться без favicon, а ссылка
+ * «вернуться на сайт» — вести в пустоту. Абсолютный путь без base
+ * (`/favicon.svg` при base=/s/) на Pages сломается — его тоже ловим.
+ */
+if (files.has("privacy.html")) {
+  const privacy = read(path.join(DIST, "privacy.html"));
+  for (const value of [...props(privacy, "href"), ...props(privacy, "src")]) {
+    if (!value || /^(https?:|mailto:|tel:|sms:|data:|javascript:|#)/.test(value)) continue;
+    const rel = value.startsWith("/")
+      ? value.slice(base.length - 1).replace(/^\//, "")
+      : value.split("?")[0].split("#")[0].replace(/^\.\//, "");
+    /* «./» и «/» — возврат в корень сайта, файла для них нет */
+    if (rel === "") continue;
+    if (!files.has(rel)) fail(`privacy.html ссылается на несуществующий ${value}`);
+  }
+}
+
+/* --------------- 3. пути к ассетам внутри JS/CSS-бандла --------------- */
 const assetRefs = new Set();
 for (const m of bundle.matchAll(/(?:images|fonts|img)\/[A-Za-z0-9._\-/]+\.(?:jpg|jpeg|png|svg|webp|avif|woff2?)/g)) {
   assetRefs.add(m[0]);
