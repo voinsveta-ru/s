@@ -43,8 +43,12 @@ npm run check    # проверка собранного dist/ (пути к фо
    репозитория сайт публиковался с битыми путями к фото и скриптам.
 3. Свой домен или публикация в корень: `SITE_BASE=/ npm run build:pages`
    (или `SITE_BASE=/любой-путь/`).
-4. Pages включаются автоматически шагом `configure-pages` в workflow.
-   Запасной вариант вручную: **Settings → Pages → Source: GitHub Actions**.
+4. **Один раз включить Pages руками: Settings → Pages → Source: GitHub
+   Actions.** Автоматически это сделать нельзя: создание сайта через API
+   требует `Administration: write`, а `GITHUB_TOKEN` такой доступ не выдаётся
+   (поэтому `configure-pages` с `enablement: true` на «свежем» репозитории
+   падает с `Resource not accessible by integration`). Workflow проверяет это
+   первым шагом и сообщает, что нажать, вместо невнятной ошибки.
 5. Для ручного запуска: вкладка **Actions → Deploy to GitHub Pages → Run workflow**.
 
 Локальная проверка Pages-сборки: `npm run build:pages && npx vite preview --base=/s/`.
