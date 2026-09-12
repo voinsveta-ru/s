@@ -6,8 +6,10 @@
  * несуществующие якоря, рассинхрон FAQ в JSON-LD и в `src/content.ts`,
  * неверные размеры og:image и «поехавшие» телефоны/почту.
  *
- * Использование: node scripts/check.cjs [--dist=dist] [--base=/voinsveta/]
+ * Использование: node scripts/check.cjs [--dist=dist] [--base=/s/]
  * Код возврата 1 — значит публиковать такую сборку нельзя.
+ * Предупреждения (⚠) сборку не блокируют: это то, что стоит поправить руками
+ * (например, адрес сайта сменился, а canonical/остались старыми).
  */
 const { existsSync, readFileSync, readdirSync, statSync } = require("node:fs");
 const path = require("node:path");
@@ -19,17 +21,36 @@ const args = Object.fromEntries(
   }),
 );
 const DIST = path.resolve(args.dist || "dist");
-const fail = (msg) => problems.push(msg);
 const problems = [];
+const warnings = [];
 const notes = [];
+const fail = (msg) => problems.push(msg);
+/* Предупреждение не блокирует публикацию, но и молчать о нём нельзя */
+const warn = (msg) => warnings.push(msg);
 
 /* ------------------------------- утилиты ------------------------------- */
 
 const read = (file) => readFileSync(file, "utf8");
 const isFile = (p) => existsSync(p) && statSync(p).isFile();
 
-/** Все строковые литералы свойства (`id:"x"`, `href:`#x``, `src='x'`) */
-function props(source, prop) {
+/**
+ * HTML-сущности → символы. JSON-LD в index.html пишется руками, и `&nbsp;`
+ * там — обычное дело, а в бандле тот же текст лежит настоящим неразрывным
+ * пробелом. Без декодирования сверка FAQ давала бы ложный «рассинхрон».
+ */
+function decodeEntities(text) {
+  const named = { nbsp: "\u00a0", mdash: "\u2014", ndash: "\u2013", laquo: "\u00ab", raquo: "\u00bb", quot: '"', amp: "&", lt: "<", gt: ">", apos: "'" };
+  return String(text).replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (all, body) => {
+    if (body[0] === "#") {
+      const code = body[1] === "x" || body[1] === "X" ? parseInt(body.slice(2), 16) : Number(body.slice(1));
+      return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : all;
+    }
+    const key = body.toLowerCase();
+    return key in named ? named[key] : all;
+  });
+}
+
+/** Все строковые литералы свойства (`id:"x"`, `href:`#x``, `src='x'`) */function props(source, prop) {
   const out = [];
   const re = new RegExp(`${prop}\\s*[:=]\\s*(['"\`])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`, "g");
   let m;
@@ -112,7 +133,7 @@ if (files.has("404.html")) {
 
 const localUrl = (value) => {
   if (!value || /^(https?:|mailto:|tel:|sms:|data:|javascript:|#)/.test(value)) return null;
-  if (!value.startsWith("/")) return null; // относительные пути Pages не ломает
+  if (!value.startsWith("/")) return value.split("?")[0].split("#")[0] || null; // относительный путь
   return value.slice(base.length - 1).replace(/^\//, "");
 };
 
@@ -120,6 +141,14 @@ for (const value of [...props(html, "href"), ...props(html, "src")]) {
   const rel = localUrl(value);
   if (rel === null) continue;
   if (!files.has(rel)) fail(`index.html ссылается на несуществующий ${value}`);
+  /* Относительный путь на Pages ломается на любом вложенном URL (404-fallback
+     отдаёт index.html по адресу /любой/путь) — нужен путь с base. */
+  else if (!value.startsWith("/")) {
+    warn(
+      `index.html: относительный путь «${value}» — на вложенном адресе Pages ` +
+        `(404-fallback) он уедет в несуществующий каталог; используйте путь с base`,
+    );
+  }
 }
 
 /* --------------- 3. пути к ассетам внутри JS/CSS-бандла --------------- */
@@ -176,9 +205,13 @@ if (faqPage) {
       fail(`некорректный элемент FAQ: ${JSON.stringify(q).slice(0, 80)}`);
       continue;
     }
-    if (!bundle.includes(q.name)) fail(`вопрос FAQ «${q.name}» не найден на странице (рассинхрон JSON-LD и content.ts)`);
-    if (!bundle.includes(q.acceptedAnswer.text)) {
-      fail(`ответ FAQ на «${q.name}» расходится с текстом на странице`);
+    const question = decodeEntities(q.name);
+    const answer = decodeEntities(q.acceptedAnswer.text);
+    if (!bundle.includes(question)) {
+      fail(`вопрос FAQ «${question}» не найден на странице (рассинхрон JSON-LD и content.ts)`);
+    }
+    if (!bundle.includes(answer)) {
+      fail(`ответ FAQ на «${question}» расходится с текстом на странице`);
     }
   }
   notes.push(`FAQ в JSON-LD: ${questions.length} вопросов, сверено с бандлом`);
@@ -269,12 +302,38 @@ else if (!sitemapUrls.includes(sitemapInRobots) && !sitemapInRobots.endsWith("si
 }
 if (canonical && !html.includes(`href="${canonical}"`)) fail("canonical в index.html не совпадает с og:url");
 
+/*
+ * Адрес сайта должен совпадать с тем путём, по которому сборка реально
+ * публикуется (base). Иначе rel=canonical и sitemap ведут поисковика не туда,
+ * где лежит сайт, — а это тихо сжигает весь SEO-эффект.
+ *
+ * Это предупреждение, а не ошибка: адрес мог смениться намеренно (репозиторий
+ * переименовали, подключили свой домен), и тогда чинить нужно четыре файла
+ * сразу — index.html (canonical + og:url), public/sitemap.xml,
+ * public/robots.txt.
+ */
+if (canonical) {
+  const canonicalPath = new URL(canonical).pathname.replace(/\/$/, "") + "/";
+  if (canonicalPath !== base) {
+    warn(
+      `canonical ${canonical} не совпадает с base сборки ${base}: ` +
+        `поисковики будут индексировать другой адрес. Обновите canonical и og:url ` +
+        `в index.html, public/sitemap.xml и public/robots.txt — либо соберите с SITE_BASE=${canonicalPath}`,
+    );
+  }
+  notes.push(`canonical ${canonical} (base сборки ${base})`);
+}
+
 /* ------------------------------- итог ------------------------------- */
 
 console.log("Проверка сборки «Воин Света»");
 notes.forEach((n) => console.log(`  · ${n}`));
+if (warnings.length > 0) {
+  console.warn(`\n⚠ Предупреждений: ${warnings.length}`);
+  warnings.forEach((w, i) => console.warn(`  ${i + 1}. ${w}`));
+}
 if (problems.length === 0) {
-  console.log(`✔ Ошибок не найдено (${notes.length} проверок)`);
+  console.log(`\n✔ Ошибок не найдено (${notes.length} проверок)`);
   process.exit(0);
 }
 console.error(`\n✖ Найдено проблем: ${problems.length}`);

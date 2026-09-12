@@ -20,30 +20,53 @@ npm install      # установить зависимости
 npm run dev      # дев-сервер → http://localhost:5173
 npm run build    # прод-сборка в dist/ (tsc + vite build)
 npm run preview  # локальный просмотр прод-сборки → http://localhost:4173
-npm run build:pages  # сборка для GitHub Pages (base=/voinsveta/, 404.html, .nojekyll)
+npm run build:pages  # сборка для GitHub Pages (base считается из репозитория)
 npm run check    # проверка собранного dist/ (пути к фото, якоря, JSON-LD, og:image)
 ```
 
 `npm run check` запускается и в CI перед публикацией: он ловит то, что не видно
 ни `tsc`, ни в дев-режиме — битые пути к ассетам после смены base, несуществующие
 якоря, рассинхрон FAQ между `index.html` и `src/content.ts`, неверные размеры
-`og:image`, «поехавшие» телефоны и почту.
+`og:image`, «поехавшие» телефоны и почту. Ошибка → публикация отменяется;
+предупреждение (⚠) → публикуем, но правим руками (например, сменился адрес сайта).
 
 ## Деплой на GitHub Pages
 
 Деплой автоматизирован через GitHub Actions (`.github/workflows/deploy-pages.yml`):
 
 1. При каждом push в `main` сайт собирается и публикуется на
-   `https://ruscli.github.io/voinsveta/` (base подставляется автоматически
-   из имени репозитория).
-2. Pages включаются автоматически шагом `configure-pages` в workflow.
+   `https://<владелец>.github.io/<имя-репозитория>/`.
+2. `base` **не захардкожен**: и workflow, и `npm run build:pages` вызывают один
+   скрипт `scripts/build-pages.cjs`, который берёт имя репозитория из
+   `GITHUB_REPOSITORY` (в CI) или из `git remote origin` (локально). Раньше
+   workflow и package.json считали base по-разному, и при переименовании
+   репозитория сайт публиковался с битыми путями к фото и скриптам.
+3. Свой домен или публикация в корень: `SITE_BASE=/ npm run build:pages`
+   (или `SITE_BASE=/voinsveta/` — любое значение, включая прежнее).
+4. Pages включаются автоматически шагом `configure-pages` в workflow.
    Запасной вариант вручную: **Settings → Pages → Source: GitHub Actions**.
-3. Для ручного запуска: вкладка **Actions → Deploy to GitHub Pages → Run workflow**.
+5. Для ручного запуска: вкладка **Actions → Deploy to GitHub Pages → Run workflow**.
 
-Локальная проверка Pages-сборки: `npm run build:pages && npx vite preview --base=/voinsveta/`.
+Локальная проверка Pages-сборки: `npm run build:pages && npx vite preview --base=/s/`.
 
-Если переименуете репозиторий или заведёте свой домен — обновите canonical/og:url
-в `index.html` и ссылки в `public/sitemap.xml`, `public/robots.txt`.
+### ⚠ Адрес сайта сейчас не согласован с репозиторием
+
+Репозиторий живёт по адресу `github.com/voinsveta-ru/s` (то есть Pages
+публиковали бы сайт на `https://voinsveta-ru.github.io/s/`, base `/s/`),
+а canonical, og:url, `sitemap.xml` и `robots.txt` указывают на
+`https://ruscli.github.io/voinsveta/`. GitHub Pages в репозитории не включены —
+нужно решить, какой адрес боевой, и привести к нему четыре места:
+
+| Файл | Что менять |
+|---|---|
+| `index.html` | `<link rel="canonical">`, `og:url`, `og:image` (абсолютный URL) |
+| `public/sitemap.xml` | все `<loc>` |
+| `public/robots.txt` | `Sitemap:` |
+| сборка | `SITE_BASE=/` для своего домена или `/` в корне, иначе base из имени репо |
+
+`npm run check` сообщит о рассогласовании предупреждением и не даст забыть ни
+одно место при следующей смене адреса. Если боевой адрес — свой домен
+(например, `voinsveta.ru`), собирайте с `SITE_BASE=/`.
 
 ## Структура
 
@@ -59,6 +82,7 @@ src/
     Icons.tsx   ui.tsx
     sections/              — Benefits, Program, Journey, Pricing, Schedule, Coaches,
                              Testimonials, Gallery, Tradition, Camp, Parents, Faq, FinalCta
+scripts/build-pages.cjs    — сборка для Pages: base из имени репозитория (SITE_BASE переопределяет)
 scripts/postbuild.cjs      — 404.html + .nojekyll для GitHub Pages
 scripts/check.cjs          — проверка целостности сборки (npm run check)
 public/
