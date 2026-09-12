@@ -22,11 +22,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Pages должны быть включены руками ОДИН раз (Settings → Pages →
+      # Source: GitHub Actions). Создать сайт через API может только токен
+      # с Administration:write, а GITHUB_TOKEN такой доступ выдать нельзя —
+      # поэтому configure-pages с enablement:true на «свежем» репозитории
+      # падает с невнятным «Resource not accessible by integration».
+      # Проверяем заранее и говорим, что нажать.
+      - name: Проверка, что GitHub Pages включены
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/pages" --jq '.status' > /dev/null 2>&1; then
+            echo "GitHub Pages: включены"
+          else
+            echo "::error title=GitHub Pages не включены::Откройте Settings → Pages → Source: GitHub Actions и сохраните (нужны права администратора репозитория), затем перезапустите этот workflow: Actions → Deploy to GitHub Pages → Run workflow."
+            exit 1
+          fi
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
         with:
-          # Автоматически включает GitHub Pages (источник — GitHub Actions),
-          # если это ещё не сделано вручную в Settings → Pages.
+          # Довключит Pages, если сайт уже создан, но источник не указан
           enablement: true
 
       - name: Setup Node
