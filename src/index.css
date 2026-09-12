@@ -93,9 +93,14 @@
     @apply h-2 w-2 rotate-45 rounded-[2px] bg-cinnabar-500;
   }
 
-  /* Появление при скролле */
+  /* Появление при скролле.
+     ВАЖНО: Tailwind v4 реализует translate-y-* через CSS-свойство `translate`,
+     а не `transform`. Поэтому в списке transition должен быть именно `translate`
+     — с `transition-[opacity,transform]` блок «прыгал» на место мгновенно
+     и анимировалось только затухание. `transform` оставлен на случай, если
+     у потомка transform всё же появится. */
   .reveal {
-    @apply translate-y-6 opacity-0 transition-[opacity,transform] duration-700 ease-out;
+    @apply translate-y-6 opacity-0 transition-[opacity,translate,transform] duration-700 ease-out;
   }
   .reveal.is-visible {
     @apply translate-y-0 opacity-100;
@@ -159,7 +164,15 @@
   }
   .reveal {
     opacity: 1;
-    transform: none;
+    /*
+     * Сбрасываем именно `translate`: сдвиг на 1.5rem задаёт .reveal через
+     * CSS-свойство `translate` (так работает translate-y-* в Tailwind v4),
+     * поэтому прежний `transform: none` ничего не отменял — блоки оставались
+     * смещёнными вниз, пока JS-эффект не добавит .is-visible.
+     * `transform: none` рядом писать нельзя: минификатор CSS тогда выбрасывает
+     * `translate: none` как «дубликат», и правка теряет смысл.
+     */
+    translate: none;
     transition: none;
   }
   .animate-float-soft,

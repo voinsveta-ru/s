@@ -15,7 +15,16 @@ export function Reveal({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    /*
+     * Показываем блок сразу, если IntersectionObserver недоступен (старые
+     * WebView/браузеры). Без этой проверки `new IntersectionObserver` бросал
+     * исключение — а так как контент целиком рисуется из JS, падала вся
+     * страница: пользователь видел бы пустой тёмный экран.
+     */
+    if (
+      typeof IntersectionObserver === "undefined" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
       el.classList.add("is-visible");
       return;
     }

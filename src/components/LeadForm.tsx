@@ -35,6 +35,10 @@ const DEFAULT_FORM: FormState = {
 
 /** Сколько последних заявок храним в браузере (чтобы не расти бесконечно) */
 const LOCAL_LEADS_LIMIT = 50;
+/** Ключ localStorage с резервными копиями заявок */
+const LOCAL_LEADS_KEY = "voinsveta-leads";
+/** Сколько ждём ответа FormSubmit, прежде чем считать доставку неудачной */
+const DELIVERY_TIMEOUT_MS = 8000;
 
 /**
  * Доставка заявки тренеру. Основной канал — письмо на почту школы через
@@ -60,6 +64,13 @@ export function LeadForm({ intent }: { intent: LeadIntent }) {
   const [delivered, setDelivered] = useState(true);
   /* Какой token уже применили, чтобы не перезаписывать ввод пользователя */
   const appliedToken = useRef(intent.token);
+  /*
+   * Синхронный флаг отправки. Проверки `status === "sending"` недостаточно:
+   * state из замыкания текущего рендера, поэтому два быстрых клика (или Enter
+   * + клик) успевали пройти до ре-рендера — тренер получал 2–3 одинаковых
+   * письма, а в localStorage ложилось 2–3 копии заявки.
+   */
+  const sendingRef = useRef(false);
 
   /*
    * Клик по CTA («Записаться в эту группу», «Узнать о следующей смене»,
@@ -107,25 +118,41 @@ export function LeadForm({ intent }: { intent: LeadIntent }) {
 
   /* Резервная копия заявки в браузере */
   const saveLocally = (lead: FormState) => {
+    /*
+     * Чтение и запись — в РАЗНЫХ try. Раньше JSON.parse стоял в одном блоке с
+     * setItem: одна битая запись в localStorage бросала исключение, и резервные
+     * копии переставали сохраняться навсегда — каждая следующая заявка терялась
+     * молча. Теперь повреждённые данные просто отбрасываются.
+     */
+    let leads: unknown[] = [];
     try {
-      const stored = window.localStorage.getItem("voinsveta-leads");
+      const stored = window.localStorage.getItem(LOCAL_LEADS_KEY);
       const parsed: unknown = stored ? JSON.parse(stored) : [];
-      const leads = Array.isArray(parsed) ? parsed : [];
+      if (Array.isArray(parsed)) leads = parsed;
+    } catch {
+      /* приватный режим или повреждённые данные — начинаем с чистого списка */
+      leads = [];
+    }
+    try {
       leads.push({ ...lead, createdAt: new Date().toISOString() });
       window.localStorage.setItem(
-        "voinsveta-leads",
+        LOCAL_LEADS_KEY,
         JSON.stringify(leads.slice(-LOCAL_LEADS_LIMIT)),
       );
     } catch {
-      /* приватный режим браузера или повреждённые данные — не критично */
+      /* хранилище недоступно: заявка всё равно уходит тренеру письмом,
+         а на экране «Спасибо» есть WhatsApp/SMS-дубли */
     }
   };
 
   /* Отправка письма тренеру через FormSubmit (email = push-уведомление) */
   const deliverByEmail = async (lead: FormState): Promise<boolean> => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(
+      () => controller.abort(),
+      DELIVERY_TIMEOUT_MS,
+    );
     try {
-      const controller = new AbortController();
-      const timer = window.setTimeout(() => controller.abort(), 8000);
       const res = await fetch(FORMSUBMIT_ENDPOINT, {
         method: "POST",
         headers: {
@@ -144,7 +171,6 @@ export function LeadForm({ intent }: { intent: LeadIntent }) {
           "Комментарий": lead.comment || "—",
         }),
       });
-      window.clearTimeout(timer);
       if (!res.ok) return false;
       /* FormSubmit отвечает {"success":"true"}; до активации адреса — "false" */
       const data = (await res.json().catch(() => null)) as
@@ -159,20 +185,30 @@ export function LeadForm({ intent }: { intent: LeadIntent }) {
       /* сеть недоступна / адрес ещё не активирован — заявку не теряем */
       console.warn("FormSubmit недоступен — используйте WhatsApp/SMS-канал");
       return false;
+    } finally {
+      /* Таймаут гасим всегда: раньше при быстром отказе сети таймер оставался
+         висеть ещё 8 секунд и дёргал abort() уже завершившегося запроса */
+      window.clearTimeout(timer);
     }
   };
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (status === "sending") return;
+    /* Синхронная защита от повторной отправки (см. sendingRef) */
+    if (sendingRef.current) return;
     if (!validate()) return;
 
+    sendingRef.current = true;
     setStatus("sending");
-    saveLocally(form);
-    const ok = await deliverByEmail(form);
-    setDelivered(ok);
-    setSubmitted(form);
-    setStatus("success");
+    try {
+      saveLocally(form);
+      const ok = await deliverByEmail(form);
+      setDelivered(ok);
+      setSubmitted(form);
+      setStatus("success");
+    } finally {
+      sendingRef.current = false;
+    }
   };
 
   /* Экран благодарности + мгновенные каналы связи с тренером */

@@ -150,23 +150,34 @@ export function ChatBot() {
   };
 
   const handleChip = (chip: ChatChip) => {
-    if (chip.action === "send") {
-      sendUserText(chip.label);
-      return;
+    /*
+     * Переключаем явно по всем вариантам действия. Раньше всё, что не «send»
+     * и не «wa», считалось переходом к форме: чип «Позвонить» сегодня
+     * рендерится ссылкой tel: и сюда не попадает, но стоит однажды сделать его
+     * кнопкой — и вместо звонка открывалась бы форма заявки.
+     */
+    switch (chip.action) {
+      case "send":
+        sendUserText(chip.label);
+        return;
+      case "wa":
+        window.open(
+          waLink(
+            "Здравствуйте! Пишу с сайта школы «Воин Света». Хочу узнать про занятия и записать ребёнка на бесплатную тренировку.",
+          ),
+          "_blank",
+          "noopener,noreferrer",
+        );
+        return;
+      case "call":
+        window.location.href = PHONE_HREF;
+        return;
+      case "form":
+        /* к форме заявки, чат сворачиваем */
+        setIsOpen(false);
+        open();
+        return;
     }
-    if (chip.action === "wa") {
-      window.open(
-        waLink(
-          "Здравствуйте! Пишу с сайта школы «Воин Света». Хочу узнать про занятия и записать ребёнка на бесплатную тренировку.",
-        ),
-        "_blank",
-        "noopener,noreferrer",
-      );
-      return;
-    }
-    /* form: к форме заявки, чат сворачиваем */
-    setIsOpen(false);
-    open();
   };
 
   return (

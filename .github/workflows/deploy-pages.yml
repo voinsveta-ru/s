@@ -64,6 +64,12 @@ jobs:
       - name: Check build integrity
         run: node scripts/check.cjs
 
+      # База знаний чат-бота проверяется отдельно: подбор ответа ломается тихо —
+      # и tsc, и vite build остаются зелёными, а бот начинает отвечать невпопад
+      # («сколько лет ребёнку?» → ответ про цену). Сборка для этого не нужна.
+      - name: Check chatbot knowledge base
+        run: node scripts/check-chat.cjs
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:

@@ -11,7 +11,8 @@
     "build:pages": "tsc && node scripts/build-pages.cjs",
     "preview:pages": "node scripts/preview-pages.cjs",
     "check": "node scripts/check.cjs",
-    "check:pages": "npm run build:pages && node scripts/check.cjs"
+    "check:chat": "node scripts/check-chat.cjs",
+    "check:pages": "npm run build:pages && node scripts/check.cjs && node scripts/check-chat.cjs"
   },
   "dependencies": {
     "react": "^19.3.0",
