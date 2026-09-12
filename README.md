@@ -21,6 +21,7 @@ npm run dev      # дев-сервер → http://localhost:5173
 npm run build    # прод-сборка в dist/ (tsc + vite build)
 npm run preview  # локальный просмотр прод-сборки → http://localhost:4173
 npm run build:pages  # сборка для GitHub Pages (base считается из репозитория)
+npm run preview:pages  # превью Pages-сборки с тем же base → http://localhost:4173/s/
 npm run check    # проверка собранного dist/ (пути к фото, якоря, JSON-LD, og:image)
 ```
 
@@ -51,7 +52,9 @@ npm run check    # проверка собранного dist/ (пути к фо
    первым шагом и сообщает, что нажать, вместо невнятной ошибки.
 5. Для ручного запуска: вкладка **Actions → Deploy to GitHub Pages → Run workflow**.
 
-Локальная проверка Pages-сборки: `npm run build:pages && npx vite preview --base=/s/`.
+Локальная проверка Pages-сборки: `npm run build:pages && npm run preview:pages`.
+(Обычный `npm run preview` здесь не подходит: он берёт base `/` из `vite.config.ts`
+и отдаёт index.html на любой запрос — preview не знает, с каким base собирался dist.)
 
 ### Адрес сайта
 
@@ -82,8 +85,10 @@ src/
     Icons.tsx   ui.tsx
     sections/              — Benefits, Program, Journey, Pricing, Schedule, Coaches,
                              Testimonials, Gallery, Tradition, Camp, Parents, Faq, FinalCta
+scripts/resolve-base.cjs    — общий резолвинг base (для сборки и превью)
 scripts/build-pages.cjs    — сборка для Pages: base из имени репозитория (SITE_BASE переопределяет)
 scripts/postbuild.cjs      — 404.html + .nojekyll для GitHub Pages
+scripts/preview-pages.cjs  — vite preview с base сборки (npm run preview:pages)
 scripts/check.cjs          — проверка целостности сборки (npm run check)
 public/
   images/china/            — РЕАЛЬНЫЕ фото: поездки в школу Ши Янчена и монастырь Шаолинь
