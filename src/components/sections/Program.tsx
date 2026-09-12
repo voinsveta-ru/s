@@ -18,7 +18,7 @@ export function Program() {
               <article className="card card-hover group relative h-full overflow-hidden">
                 <span
                   aria-hidden="true"
-                  className="absolute top-4 right-5 font-display text-xs font-bold text-paper-100/25 transition-colors group-hover:text-gold-400/70"
+                  className="absolute top-4 right-5 font-display text-xs font-bold text-paper-100/55 transition-colors group-hover:text-gold-400/70"
                 >
                   {String(i + 1).padStart(2, "0")}
                 </span>

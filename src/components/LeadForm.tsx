@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   LOCATIONS,
   type LocationId,
@@ -6,8 +6,10 @@ import {
   PHONE_DISPLAY,
   PHONE_HREF,
   LEAD_EMAIL,
+  asset,
   smsLink,
   waLink,
+  type LeadIntent,
 } from "../content";
 import { Icon } from "./Icons";
 
@@ -31,6 +33,9 @@ const DEFAULT_FORM: FormState = {
   comment: "",
 };
 
+/** Сколько последних заявок храним в браузере (чтобы не расти бесконечно) */
+const LOCAL_LEADS_LIMIT = 50;
+
 /**
  * Доставка заявки тренеру. Основной канал — письмо на почту школы через
  * FormSubmit (без бэкенда; при первой отправке нужно один раз активировать
@@ -42,30 +47,40 @@ const FORMSUBMIT_ENDPOINT = `https://formsubmit.co/ajax/${LEAD_EMAIL}`;
 const locationLabel = (id: LocationId) =>
   LOCATIONS.find((l) => l.id === id)?.city ?? "Пока не знаю";
 
-export function LeadForm({
-  initialLocation = "unknown",
-  initialComment = "",
-}: {
-  initialLocation?: LocationId;
-  initialComment?: string;
-}) {
+export function LeadForm({ intent }: { intent: LeadIntent }) {
   const [form, setForm] = useState<FormState>({
     ...DEFAULT_FORM,
-    location: initialLocation,
-    comment: initialComment,
+    location: intent.location ?? "unknown",
+    comment: intent.note ?? "",
   });
   const [submitted, setSubmitted] = useState<FormState | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [status, setStatus] = useState<Status>("idle");
+  /** Дошло ли письмо тренеру: если нет — на «Спасибо» честно предлагаем WhatsApp */
+  const [delivered, setDelivered] = useState(true);
+  /* Какой token уже применили, чтобы не перезаписывать ввод пользователя */
+  const appliedToken = useRef(intent.token);
 
-  /* Если пользователь нажал «Записаться в эту группу» — подставляем локацию */
+  /*
+   * Клик по CTA («Записаться в эту группу», «Узнать о следующей смене»,
+   * липкая панель, чат-бот) — подставляем только то, что реально передали.
+   * Общий CTA без локации и комментария больше не затирает то, что родитель
+   * уже выбрал и написал.
+   */
   useEffect(() => {
+    if (intent.token === appliedToken.current) return;
+    appliedToken.current = intent.token;
+
     setForm((f) => ({
       ...f,
-      location: initialLocation,
-      comment: initialComment,
+      ...(intent.location ? { location: intent.location } : null),
+      ...(intent.note !== undefined ? { comment: intent.note } : null),
     }));
-  }, [initialLocation, initialComment]);
+    /* Заявка уже отправлена — возвращаем форму, раз пользователь снова жмёт CTA */
+    setSubmitted(null);
+    setDelivered(true);
+    setStatus("idle");
+  }, [intent.token, intent.location, intent.note]);
 
   const setField = (name: keyof FormState, value: string) => {
     setForm((f) => ({ ...f, [name]: value }));
@@ -93,13 +108,16 @@ export function LeadForm({
   /* Резервная копия заявки в браузере */
   const saveLocally = (lead: FormState) => {
     try {
-      const leads = JSON.parse(
-        window.localStorage.getItem("voinsveta-leads") ?? "[]",
-      ) as unknown[];
+      const stored = window.localStorage.getItem("voinsveta-leads");
+      const parsed: unknown = stored ? JSON.parse(stored) : [];
+      const leads = Array.isArray(parsed) ? parsed : [];
       leads.push({ ...lead, createdAt: new Date().toISOString() });
-      window.localStorage.setItem("voinsveta-leads", JSON.stringify(leads));
+      window.localStorage.setItem(
+        "voinsveta-leads",
+        JSON.stringify(leads.slice(-LOCAL_LEADS_LIMIT)),
+      );
     } catch {
-      /* приватный режим браузера — не критично */
+      /* приватный режим браузера или повреждённые данные — не критично */
     }
   };
 
@@ -127,7 +145,16 @@ export function LeadForm({
         }),
       });
       window.clearTimeout(timer);
-      return res.ok;
+      if (!res.ok) return false;
+      /* FormSubmit отвечает {"success":"true"}; до активации адреса — "false" */
+      const data = (await res.json().catch(() => null)) as
+        | { success?: unknown }
+        | null;
+      return (
+        data?.success === undefined ||
+        data.success === true ||
+        data.success === "true"
+      );
     } catch {
       /* сеть недоступна / адрес ещё не активирован — заявку не теряем */
       console.warn("FormSubmit недоступен — используйте WhatsApp/SMS-канал");
@@ -142,7 +169,8 @@ export function LeadForm({
 
     setStatus("sending");
     saveLocally(form);
-    await deliverByEmail(form);
+    const ok = await deliverByEmail(form);
+    setDelivered(ok);
     setSubmitted(form);
     setStatus("success");
   };
@@ -170,14 +198,24 @@ export function LeadForm({
         <h3 className="mt-5 font-display text-xl font-bold">
           Спасибо, заявка принята!
         </h3>
-        <p className="mt-2.5 max-w-sm text-sm leading-relaxed text-paper-100/70">
-          Тренер Александр уже получил уведомление и перезвонит вам — ответит
-          на вопросы и запишет ребёнка на бесплатную тренировку.
-        </p>
+        {delivered ? (
+          <p className="mt-2.5 max-w-sm text-sm leading-relaxed text-paper-100/75">
+            Тренер Александр уже получил уведомление и перезвонит вам — ответит
+            на вопросы и запишет ребёнка на бесплатную тренировку.
+          </p>
+        ) : (
+          <p className="mt-2.5 max-w-sm text-sm leading-relaxed text-paper-100/75">
+            Мы сохранили заявку, но уведомление тренеру сейчас не ушло
+            (нет связи или почта школы ещё не активирована). Чтобы не ждать —
+            отправьте её одним касанием в WhatsApp или позвоните напрямую.
+          </p>
+        )}
 
         <div className="mt-5 w-full max-w-sm rounded-2xl border border-white/10 bg-ink-900/70 p-4">
-          <p className="text-xs font-bold tracking-wider text-paper-100/50 uppercase">
-            Не хотите ждать? Напишите тренеру сразу:
+          <p className="text-xs font-bold tracking-wider text-paper-100/60 uppercase">
+            {delivered
+              ? "Не хотите ждать? Напишите тренеру сразу:"
+              : "Свяжитесь с тренером сейчас:"}
           </p>
           <div className="mt-3 grid gap-2.5">
             <a
@@ -200,7 +238,7 @@ export function LeadForm({
           </div>
         </div>
 
-        <p className="mt-4 text-sm text-paper-100/60">
+        <p className="mt-4 text-sm text-paper-100/70">
           Или позвоните сами:{" "}
           <a
             href={PHONE_HREF}
@@ -214,9 +252,14 @@ export function LeadForm({
           type="button"
           className="btn btn-ghost mt-5 px-5 py-2.5 text-xs"
           onClick={() => {
-            setForm({ ...DEFAULT_FORM, location: initialLocation });
+            setForm({
+              ...DEFAULT_FORM,
+              location: intent.location ?? "unknown",
+              comment: intent.note ?? "",
+            });
             setSubmitted(null);
             setErrors({});
+            setDelivered(true);
             setStatus("idle");
           }}
         >
@@ -225,6 +268,9 @@ export function LeadForm({
       </div>
     );
   }
+
+  const phoneError = errors.phone;
+  const emailError = errors.email;
 
   return (
     <form
@@ -248,12 +294,18 @@ export function LeadForm({
             placeholder="+7 900 000-00-00"
             value={form.phone}
             onChange={(e) => setField("phone", e.target.value)}
-            aria-invalid={Boolean(errors.phone)}
+            aria-invalid={Boolean(phoneError)}
+            aria-describedby={phoneError ? "lead-phone-error" : "lead-phone-hint"}
           />
-          {errors.phone ? (
-            <p className="field-error">{errors.phone}</p>
+          {phoneError ? (
+            <p id="lead-phone-error" className="field-error" role="alert">
+              {phoneError}
+            </p>
           ) : (
-            <p className="mt-1.5 text-xs text-paper-100/45">
+            <p
+              id="lead-phone-hint"
+              className="mt-1.5 text-xs text-paper-100/60"
+            >
               Номер увидит только тренер Александр — для звонка о записи.
             </p>
           )}
@@ -290,9 +342,14 @@ export function LeadForm({
             placeholder="you@mail.ru"
             value={form.email}
             onChange={(e) => setField("email", e.target.value)}
-            aria-invalid={Boolean(errors.email)}
+            aria-invalid={Boolean(emailError)}
+            aria-describedby={emailError ? "lead-email-error" : undefined}
           />
-          {errors.email ? <p className="field-error">{errors.email}</p> : null}
+          {emailError ? (
+            <p id="lead-email-error" className="field-error" role="alert">
+              {emailError}
+            </p>
+          ) : null}
         </div>
 
         <div className="sm:col-span-2">
@@ -343,11 +400,11 @@ export function LeadForm({
         {status !== "sending" ? <Icon name="phone" className="h-4 w-4" /> : null}
       </button>
 
-      <p className="mt-3.5 text-center text-xs leading-relaxed text-paper-100/45">
+      <p className="mt-3.5 text-center text-xs leading-relaxed text-paper-100/60">
         Перезвоним в течение дня — обычно быстрее. Никакого спама: номер нужен
         только для записи.{" "}
         <a
-          href="privacy.html"
+          href={asset("privacy.html")}
           className="underline decoration-gold-500/50 underline-offset-2 hover:text-gold-300"
         >
           Политика конфиденциальности

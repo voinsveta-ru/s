@@ -21,8 +21,15 @@ import { FinalCta } from "./components/sections/FinalCta";
 export default function App() {
   return (
     <LeadProvider>
+      {/* Переход к содержимому для клавиатуры и скринридеров */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[80] focus:rounded-full focus:bg-gold-400 focus:px-5 focus:py-3 focus:text-sm focus:font-bold focus:text-ink-950"
+      >
+        Перейти к содержимому
+      </a>
       <Header />
-      <main>
+      <main id="main">
         <Hero />
         <Benefits />
         <Program />
@@ -39,7 +46,12 @@ export default function App() {
         <FinalCta />
       </main>
       <Footer />
-      <div aria-hidden="true" className="h-[76px] lg:hidden" />
+      {/* Спейсер под липкую панель: учитываем безопасную зону iPhone,
+          иначе панель закрывает низ футера на телефонах с «чёлкой» */}
+      <div
+        aria-hidden="true"
+        className="h-[calc(5.5rem+env(safe-area-inset-bottom))] lg:hidden"
+      />
       <StickyCta />
       <ChatBot />
     </LeadProvider>

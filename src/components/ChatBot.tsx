@@ -7,11 +7,10 @@ import {
 } from "react";
 import {
   CHAT_DEFAULT_CHIPS,
-  CHAT_FALLBACK,
   CHAT_GREETING,
-  CHAT_RULES,
   PHONE_HREF,
   SCHOOL_NAME,
+  findChatAnswer,
   waLink,
   type ChatChip,
 } from "../content";
@@ -26,33 +25,37 @@ interface Message {
   chips?: ChatChip[];
 }
 
-let nextId = 1;
+const CHAT_PANEL_ID = "chat-panel";
 
-/* Нормализация текста: нижний регистр + «ё» → «е» */
-const normalize = (text: string) => text.toLowerCase().replace(/ё/g, "е");
-
-function answerFor(text: string): { text: string; chips?: ChatChip[] } {
-  const t = normalize(text);
-  for (const rule of CHAT_RULES) {
-    if (rule.keywords.some((k) => t.includes(normalize(k)))) {
-      return { text: rule.answer, chips: rule.chips };
-    }
-  }
-  return { text: CHAT_FALLBACK.answer, chips: CHAT_FALLBACK.chips };
-}
+/*
+ * Отступы считаем от липкой панели CTA и учитываем безопасную зону iPhone:
+ * без env(safe-area-inset-bottom) кнопка чата наезжала на панель на телефонах
+ * с «чёлкой» (панель выше на величину safe-area).
+ */
+const FAB_POSITION =
+  "bottom-[calc(5.75rem+env(safe-area-inset-bottom))] lg:bottom-6";
+const PANEL_POSITION =
+  "bottom-[calc(9.75rem+env(safe-area-inset-bottom))] lg:bottom-24";
+/* Панель не должна вылезать за верх экрана (ландшафт / низкий viewport) */
+const PANEL_HEIGHT =
+  "h-[min(35rem,66dvh)] max-h-[calc(100dvh-11.5rem)] lg:h-[min(35rem,72dvh)] lg:max-h-[calc(100dvh-9rem)]";
 
 export function ChatBot() {
   const { open } = useLead();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    { id: nextId++, from: "bot", text: CHAT_GREETING, chips: CHAT_DEFAULT_CHIPS },
+  const [messages, setMessages] = useState<Message[]>(() => [
+    { id: 1, from: "bot", text: CHAT_GREETING, chips: CHAT_DEFAULT_CHIPS },
   ]);
   const [draft, setDraft] = useState("");
   const [typing, setTyping] = useState(false);
 
+  const nextId = useRef(2);
   const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const fabRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const timersRef = useRef<number[]>([]);
+  const timersRef = useRef(new Set<number>());
+  const wasOpen = useRef(false);
 
   /* Автопрокрутка списка сообщений */
   useEffect(() => {
@@ -60,39 +63,72 @@ export function ChatBot() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, typing, isOpen]);
 
-  /* Фокус в поле при открытии + Escape закрывает чат */
+  /*
+   * Фокус в поле при открытии; при закрытии возвращаем фокус на кнопку чата —
+   * иначе клавиатурный пользователь «теряется» на странице. Слушатели вешаем
+   * только пока чат открыт: раньше Escape перехватывался на всём сайте.
+   */
   useEffect(() => {
-    if (isOpen) inputRef.current?.focus();
+    if (isOpen) {
+      wasOpen.current = true;
+      inputRef.current?.focus();
+      return;
+    }
+    if (wasOpen.current) {
+      wasOpen.current = false;
+      fabRef.current?.focus({ preventScroll: true });
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === "Escape") setIsOpen(false);
     };
+    /* Клик мимо панели и кнопки — сворачиваем чат (это не модальное окно) */
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (panelRef.current?.contains(target)) return;
+      if (fabRef.current?.contains(target)) return;
+      setIsOpen(false);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
   }, [isOpen]);
 
-  /* Не оставляем висящие таймеры */
-  useEffect(
-    () => () => {
-      for (const id of timersRef.current) window.clearTimeout(id);
-    },
-    [],
-  );
+  /* Не оставляем висящие таймеры при размонтировании */
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      for (const id of timers) window.clearTimeout(id);
+      timers.clear();
+    };
+  }, []);
 
   const reply = (userText: string) => {
     setTyping(true);
     const delay = 600 + Math.random() * 500;
     const timer = window.setTimeout(() => {
-      const { text, chips } = answerFor(userText);
-      setMessages((m) => [...m, { id: nextId++, from: "bot", text, chips }]);
+      timersRef.current.delete(timer);
+      const rule = findChatAnswer(userText);
+      setMessages((m) => [
+        ...m,
+        { id: nextId.current++, from: "bot", text: rule.answer, chips: rule.chips },
+      ]);
       setTyping(false);
     }, delay);
-    timersRef.current.push(timer);
+    timersRef.current.add(timer);
   };
 
   const sendUserText = (raw: string) => {
     const text = raw.trim();
     if (!text) return;
-    setMessages((m) => [...m, { id: nextId++, from: "user", text }]);
+    setMessages((m) => [...m, { id: nextId.current++, from: "user", text }]);
     setDraft("");
     reply(text);
   };
@@ -114,10 +150,6 @@ export function ChatBot() {
       sendUserText(chip.label);
       return;
     }
-    if (chip.action === "call") {
-      window.location.href = PHONE_HREF;
-      return;
-    }
     if (chip.action === "wa") {
       window.open(
         waLink(
@@ -130,7 +162,7 @@ export function ChatBot() {
     }
     /* form: к форме заявки, чат сворачиваем */
     setIsOpen(false);
-    open({});
+    open();
   };
 
   return (
@@ -138,10 +170,12 @@ export function ChatBot() {
       {/* Кнопка-кружок */}
       <button
         type="button"
+        ref={fabRef}
         onClick={() => setIsOpen((v) => !v)}
         aria-expanded={isOpen}
+        aria-controls={CHAT_PANEL_ID}
         aria-label={isOpen ? "Закрыть чат с администратором" : "Открыть чат с администратором"}
-        className="fixed right-4 bottom-[92px] z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-b from-gold-300 via-gold-400 to-gold-500 text-ink-950 shadow-[0_14px_36px_-10px_rgba(207,159,75,0.65)] transition-transform hover:scale-105 active:scale-95 sm:right-6 lg:bottom-6"
+        className={`fixed right-4 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-b from-gold-300 via-gold-400 to-gold-500 text-ink-950 shadow-[0_14px_36px_-10px_rgba(207,159,75,0.65)] transition-transform hover:scale-105 active:scale-95 sm:right-6 ${FAB_POSITION}`}
       >
         <Icon name={isOpen ? "close" : "chat"} className="h-6 w-6" />
         {!isOpen && (
@@ -158,9 +192,11 @@ export function ChatBot() {
       {/* Панель чата */}
       {isOpen && (
         <section
+          id={CHAT_PANEL_ID}
+          ref={panelRef}
           role="dialog"
           aria-label={`Чат с администратором школы «${SCHOOL_NAME}»`}
-          className="fixed right-4 bottom-[156px] z-[60] flex h-[min(560px,66dvh)] w-[min(calc(100vw-2rem),384px)] flex-col overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl shadow-black/60 sm:right-6 lg:bottom-24 lg:h-[min(560px,72dvh)]"
+          className={`fixed right-4 z-[60] flex w-[min(calc(100vw-2rem),384px)] flex-col overflow-hidden rounded-3xl border border-white/15 bg-ink-900 shadow-2xl shadow-black/60 sm:right-6 ${PANEL_POSITION} ${PANEL_HEIGHT}`}
         >
           {/* Шапка */}
           <header className="flex items-center gap-3 border-b border-white/10 bg-ink-850 px-4 py-3.5">
@@ -178,7 +214,7 @@ export function ChatBot() {
             </div>
             <button
               type="button"
-              className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-paper-100/60 transition-colors hover:bg-white/5 hover:text-paper-50"
+              className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-paper-100/70 transition-colors hover:bg-white/5 hover:text-paper-50"
               aria-label="Закрыть чат"
               onClick={() => setIsOpen(false)}
             >
@@ -245,6 +281,7 @@ export function ChatBot() {
 
             {typing && (
               <div
+                role="status"
                 className="flex w-fit items-center gap-1.5 rounded-2xl rounded-bl-md border border-white/10 bg-ink-800 px-4 py-3"
                 aria-label="Администратор печатает"
               >
@@ -269,7 +306,7 @@ export function ChatBot() {
                 onKeyDown={onKeyDown}
                 placeholder="Напишите вопрос…"
                 aria-label="Текст вопроса администратору"
-                className="min-w-0 flex-1 rounded-full border border-white/10 bg-ink-900 px-4 py-2.5 text-sm text-paper-50 placeholder:text-paper-100/35 focus:border-gold-400/60 focus:outline-none"
+                className="min-w-0 flex-1 rounded-full border border-white/10 bg-ink-900 px-4 py-2.5 text-sm text-paper-50 placeholder:text-paper-100/55 focus:border-gold-400/60 focus:outline-none"
               />
               <button
                 type="submit"
@@ -279,7 +316,7 @@ export function ChatBot() {
                 <Icon name="send" className="h-4.5 w-4.5" />
               </button>
             </div>
-            <p className="mt-2 px-1 text-[10px] leading-snug text-paper-100/40">
+            <p className="mt-2 px-1 text-[10px] leading-snug text-paper-100/60">
               Бот отвечает на основные вопросы. Уточнить детали и записаться
               можно напрямую у тренера Александра — по телефону или через
               заявку.

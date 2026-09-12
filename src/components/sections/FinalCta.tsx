@@ -77,10 +77,7 @@ export function FinalCta() {
                 </ul>
               </div>
 
-              <LeadForm
-                initialLocation={intent.location ?? "unknown"}
-                initialComment={intent.note ?? ""}
-              />
+              <LeadForm intent={intent} />
             </div>
           </div>
         </Reveal>

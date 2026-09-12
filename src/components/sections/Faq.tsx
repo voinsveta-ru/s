@@ -30,8 +30,10 @@ export function Faq() {
                   <h3>
                     <button
                       type="button"
+                      id={`faq-question-${i}`}
                       className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left font-bold transition-colors hover:text-gold-300 sm:px-6"
                       aria-expanded={isOpen}
+                      aria-controls={`faq-answer-${i}`}
                       onClick={() => setOpenIndex(isOpen ? null : i)}
                     >
                       {item.q}
@@ -44,6 +46,12 @@ export function Faq() {
                     </button>
                   </h3>
                   <div
+                    id={`faq-answer-${i}`}
+                    role="region"
+                    aria-labelledby={`faq-question-${i}`}
+                    /* Закрытая панель схлопнута, но остаётся в DOM из-за
+                       анимации — прячем её от скринридеров */
+                    aria-hidden={!isOpen}
                     className={`grid transition-all duration-300 ease-out ${
                       isOpen
                         ? "grid-rows-[1fr] opacity-100"

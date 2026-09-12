@@ -27,7 +27,9 @@ export function Hero() {
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold-500/30 to-transparent" />
       </div>
 
-      <div className="container-x relative grid items-center gap-12 pt-14 pb-16 sm:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:pb-20">
+      {/* pt-[92px] больше высоты фиксированной шапки (72px): иначе на мобильных
+          шапка наезжает на первый блок hero */}
+      <div className="container-x relative grid items-center gap-12 pt-[92px] pb-16 sm:pt-24 lg:grid-cols-[1.05fr_0.95fr] lg:pb-20">
         {/* Текстовая часть */}
         <div>
           <Reveal>
@@ -65,7 +67,7 @@ export function Hero() {
                 Посмотреть расписание
               </a>
             </div>
-            <p className="mt-3.5 text-xs font-semibold text-paper-100/50">
+            <p className="mt-3.5 text-xs font-semibold text-paper-100/60">
               Первая тренировка бесплатно · идёт набор в новые группы:{" "}
               <span className="text-gold-300">от 3 900 ₽/мес</span>{" "}
               <s className="opacity-60">вместо от 4 900 ₽/мес</s>
@@ -113,9 +115,12 @@ export function Hero() {
               <img
                 src={asset("images/china/monks-demo.jpg")}
                 alt="Демонстрация шаолиньского ушу монахами в монастыре Шаолинь"
+                width={1100}
+                height={619}
                 className="aspect-[16/10] w-full object-cover"
                 loading="eager"
                 decoding="async"
+                fetchPriority="high"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-ink-950/75 via-transparent to-ink-950/15" />
               <figcaption className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-ink-950/60 px-4 py-3 backdrop-blur-md">
@@ -131,7 +136,7 @@ export function Hero() {
                 </a>
               </figcaption>
             </figure>
-            <p className="mt-3 text-center text-xs text-paper-100/50">
+            <p className="mt-3 text-center text-xs text-paper-100/60">
               Фото из поездок школы в монастырь Шаолинь — смотрите{" "}
               <a
                 href="#gallery"
