@@ -106,7 +106,7 @@ const bundle = assets
   .map((f) => read(path.join(DIST, f)))
   .join("\n");
 
-/* Base берём из собранного index.html: <script src="/voinsveta/assets/..."> */
+/* Base берём из собранного index.html: <script src="/s/assets/..."> */
 let base = args.base;
 if (!base) {
   const scriptSrc = props(html, "src").find((s) => s.includes("/assets/"));

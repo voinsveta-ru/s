@@ -12,8 +12,8 @@
  *   1. SITE_BASE из окружения (если задали явно — например, base=/ для своего домена)
  *   2. GITHUB_REPOSITORY в Actions («owner/name»)
  *   3. git remote origin
- *   4. fallback: /voinsveta/ (историческое значение, чтобы сборка не падала
- *      в окружении без git и без CI)
+ *   4. fallback: /s/ (боевой адрес сайта — https://voinsveta-ru.github.io/s/),
+ *      чтобы сборка не падала в окружении без git и без CI
  */
 const { execFileSync, spawnSync } = require("node:child_process");
 const path = require("node:path");
@@ -41,14 +41,14 @@ function baseFromGit() {
 function resolveBase() {
   const explicit = process.env.SITE_BASE?.trim();
   if (explicit) {
-    /* vite ждёт base с завершающим слешем («/» или «/voinsveta/») */
+    /* vite ждёт base с завершающим слешем («/» или «/s/») */
     return explicit === "/" ? "/" : `${explicit.replace(/\/$/, "")}/`;
   }
 
   const repo = process.env.GITHUB_REPOSITORY?.split("/")[1] || baseFromGit();
   if (repo) return `/${repo}/`;
 
-  return "/voinsveta/";
+  return "/s/";
 }
 
 function fail(message) {

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ruscli.github.io/voinsveta/sitemap.xml
+Sitemap: https://voinsveta-ru.github.io/s/sitemap.xml

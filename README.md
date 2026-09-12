@@ -42,31 +42,27 @@ npm run check    # проверка собранного dist/ (пути к фо
    workflow и package.json считали base по-разному, и при переименовании
    репозитория сайт публиковался с битыми путями к фото и скриптам.
 3. Свой домен или публикация в корень: `SITE_BASE=/ npm run build:pages`
-   (или `SITE_BASE=/voinsveta/` — любое значение, включая прежнее).
+   (или `SITE_BASE=/любой-путь/`).
 4. Pages включаются автоматически шагом `configure-pages` в workflow.
    Запасной вариант вручную: **Settings → Pages → Source: GitHub Actions**.
 5. Для ручного запуска: вкладка **Actions → Deploy to GitHub Pages → Run workflow**.
 
 Локальная проверка Pages-сборки: `npm run build:pages && npx vite preview --base=/s/`.
 
-### ⚠ Адрес сайта сейчас не согласован с репозиторием
+### Адрес сайта
 
-Репозиторий живёт по адресу `github.com/voinsveta-ru/s` (то есть Pages
-публиковали бы сайт на `https://voinsveta-ru.github.io/s/`, base `/s/`),
-а canonical, og:url, `sitemap.xml` и `robots.txt` указывают на
-`https://ruscli.github.io/voinsveta/`. GitHub Pages в репозитории не включены —
-нужно решить, какой адрес боевой, и привести к нему четыре места:
+Боевой адрес — **`https://voinsveta-ru.github.io/s/`** (base `/s/`, совпадает
+с именем репозитория, поэтому считается автоматически).
+
+Если репозиторий переименуют или подключат свой домен, адрес нужно поменять в
+четырёх местах сразу — `npm run check` предупредит о рассогласовании:
 
 | Файл | Что менять |
 |---|---|
-| `index.html` | `<link rel="canonical">`, `og:url`, `og:image` (абсолютный URL) |
-| `public/sitemap.xml` | все `<loc>` |
+| `index.html` | `<link rel="canonical">`, `og:url`, `og:image` (абсолютный URL), `url` в JSON-LD |
+| `public/sitemap.xml` | все `<loc>` и `<lastmod>` |
 | `public/robots.txt` | `Sitemap:` |
-| сборка | `SITE_BASE=/` для своего домена или `/` в корне, иначе base из имени репо |
-
-`npm run check` сообщит о рассогласовании предупреждением и не даст забыть ни
-одно место при следующей смене адреса. Если боевой адрес — свой домен
-(например, `voinsveta.ru`), собирайте с `SITE_BASE=/`.
+| сборка | `SITE_BASE=/` для домена в корне, иначе base возьмётся из имени репозитория |
 
 ## Структура
 

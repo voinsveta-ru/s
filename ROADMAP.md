@@ -57,7 +57,7 @@
 ## Этап 4. Проверка Pages и свой домен
 
 1. Включить Pages: Settings → Pages → Source: GitHub Actions → дождаться
-   зелёной галочки → сайт на ruscli.github.io/voinsveta/.
+   зелёной галочки → сайт на voinsveta-ru.github.io/s/.
 2. Прогнать Lighthouse (цель: 90+ по всем категориям), проверить OG-превью
    через Telegram/WhatsApp.
 3. Купить домен (например, воинсвета.рф / voinsveta.ru — ~200–800 ₽/год).
