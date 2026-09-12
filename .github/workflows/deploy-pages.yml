@@ -12,7 +12,8 @@ permissions:
 
 concurrency:
   group: github-pages
-  cancel-in-progress: true
+  # Деплой не отменяем на середине: иначе Pages могут остаться без артефакта
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -42,6 +43,10 @@ jobs:
           npx tsc
           npx vite build --base="/${GITHUB_REPOSITORY#*/}/"
           node scripts/postbuild.cjs
+
+      # Не публикуем сборку с битыми путями к фото, якорями или рассинхроном FAQ
+      - name: Check build integrity
+        run: node scripts/check.cjs
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

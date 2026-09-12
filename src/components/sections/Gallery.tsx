@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GALLERY } from "../../content";
 import { Icon } from "../Icons";
 import { Reveal, SectionHeading } from "../ui";
 
 export function Gallery() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const isOpen = openIndex !== null;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  /* Кнопка, которой открыли лайтбокс, — вернём на неё фокус при закрытии */
+  const openerRef = useRef<HTMLElement | null>(null);
 
   const close = useCallback(() => setOpenIndex(null), []);
   const showPrev = useCallback(() => {
@@ -16,22 +21,62 @@ export function Gallery() {
     setOpenIndex((i) => (i === null ? null : (i + 1) % GALLERY.length));
   }, []);
 
-  /* Клавиатура + блокировка прокрутки страницы при открытом лайтбоксе */
+  const openAt = (index: number) => {
+    openerRef.current = document.activeElement as HTMLElement | null;
+    setOpenIndex(index);
+  };
+
+  /* Клавиатура: Escape закрывает, ← → листают */
   useEffect(() => {
-    if (openIndex === null) return;
+    if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
       if (e.key === "ArrowLeft") showPrev();
       if (e.key === "ArrowRight") showNext();
+      if (e.key === "Tab") {
+        /* Модальное окно: фокус не должен уходить на страницу под ним */
+        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href]',
+        );
+        if (!focusable || focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+        if (!dialogRef.current?.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        } else if (e.shiftKey && active === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, close, showPrev, showNext]);
+
+  /* Блокировка прокрутки страницы — отдельным эффектом, чтобы не дёргать её при листании */
+  useEffect(() => {
+    if (!isOpen) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [openIndex, close, showPrev, showNext]);
+  }, [isOpen]);
+
+  /* Фокус внутрь диалога при открытии и обратно — при закрытии */
+  useEffect(() => {
+    if (isOpen) {
+      closeButtonRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    openerRef.current?.focus?.({ preventScroll: true });
+    openerRef.current = null;
+  }, [isOpen]);
 
   return (
     <section id="gallery" className="scroll-mt-24 py-20 sm:py-24">
@@ -48,7 +93,7 @@ export function Gallery() {
               <button
                 type="button"
                 className="group relative block w-full overflow-hidden rounded-2xl border border-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
-                onClick={() => setOpenIndex(i)}
+                onClick={() => openAt(i)}
                 aria-label={`Открыть фото: ${photo.alt}`}
               >
                 <img
@@ -75,8 +120,9 @@ export function Gallery() {
       </div>
 
       {/* Лайтбокс */}
-      {openIndex !== null && (
+      {isOpen && openIndex !== null && (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-label="Просмотр фотографии"
@@ -85,6 +131,7 @@ export function Gallery() {
         >
           <button
             type="button"
+            ref={closeButtonRef}
             className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-paper-50 transition-colors hover:border-gold-400/50 hover:text-gold-300"
             onClick={close}
             aria-label="Закрыть просмотр"
@@ -115,7 +162,7 @@ export function Gallery() {
             />
             <figcaption className="mt-3 text-center text-sm text-paper-100/75">
               {GALLERY[openIndex].alt}
-              <span className="mt-1 block text-xs text-paper-100/40">
+              <span className="mt-1 block text-xs text-paper-100/60">
                 {openIndex + 1} / {GALLERY.length} · используйте ← и → для
                 переключения
               </span>

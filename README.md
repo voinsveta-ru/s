@@ -21,7 +21,13 @@ npm run dev      # дев-сервер → http://localhost:5173
 npm run build    # прод-сборка в dist/ (tsc + vite build)
 npm run preview  # локальный просмотр прод-сборки → http://localhost:4173
 npm run build:pages  # сборка для GitHub Pages (base=/voinsveta/, 404.html, .nojekyll)
+npm run check    # проверка собранного dist/ (пути к фото, якоря, JSON-LD, og:image)
 ```
+
+`npm run check` запускается и в CI перед публикацией: он ловит то, что не видно
+ни `tsc`, ни в дев-режиме — битые пути к ассетам после смены base, несуществующие
+якоря, рассинхрон FAQ между `index.html` и `src/content.ts`, неверные размеры
+`og:image`, «поехавшие» телефоны и почту.
 
 ## Деплой на GitHub Pages
 
@@ -45,19 +51,23 @@ npm run build:pages  # сборка для GitHub Pages (base=/voinsveta/, 404.h
 index.html                 — SEO, OpenGraph, JSON-LD (Organization + FAQ), шрифты, preload hero
 src/
   content.ts               — ВЕСЬ контент: контакты, цены, FAQ, база знаний чат-бота
+                             и подбор ответа бота (findChatAnswer)
   lead.tsx                 — контекст заявки (передача локации/комментария в форму)
   App.tsx                  — порядок секций + подключение чат-бота
   components/
-    Header.tsx  Hero.tsx  LeadForm.tsx  ChatBot.tsx  Footer.tsx  Icons.tsx  ui.tsx
-    sections/              — Benefits, Program, Journey, Pricing, Schedule,
-                             Coaches, Tradition, Camp, Parents, Faq, FinalCta
+    Header.tsx  Hero.tsx  LeadForm.tsx  ChatBot.tsx  Footer.tsx  StickyCta.tsx
+    Icons.tsx   ui.tsx
+    sections/              — Benefits, Program, Journey, Pricing, Schedule, Coaches,
+                             Testimonials, Gallery, Tradition, Camp, Parents, Faq, FinalCta
 scripts/postbuild.cjs      — 404.html + .nojekyll для GitHub Pages
+scripts/check.cjs          — проверка целостности сборки (npm run check)
 public/
   images/china/            — РЕАЛЬНЫЕ фото: поездки в школу Ши Янчена и монастырь Шаолинь
   privacy.html             — политика конфиденциальности (152-ФЗ)
   favicon.svg              — энсо + печать (логотип-заглушка)
   robots.txt  sitemap.xml  .nojekyll
-.github/workflows/deploy-pages.yml
+.github/workflows/deploy-pages.yml       — сборка, проверка и публикация на Pages
+.github/workflows/fetch-old-gallery.yml  — служебный: перенос фото со старого сайта
 ```
 
 ## Ключевые блоки сайта
@@ -68,8 +78,11 @@ public/
 - **Форма заявки**: телефон — обязателен; имя, email, локация, комментарий — по
   желанию. После отправки — «Спасибо, мы свяжемся с вами».
 - **Чат-бот «администратор»** (без API): отвечает на основные вопросы (цены,
-  расписание, возраст, безопасность, сборы, тренеры…), предлагает оставить
-  заявку или позвонить тренеру. База знаний — `CHAT_RULES` в `src/content.ts`.
+  расписание, адреса, возраст, подготовка, безопасность, справка, что взять,
+  сборы, тренеры, ступени…), предлагает оставить заявку или позвонить тренеру.
+  База знаний — `CHAT_RULES` в `src/content.ts`; ответ выбирается по весу
+  совпадения (`findChatAnswer`), а не первым попавшимся ключевым словом,
+  поэтому «летние сборы» не отвечают про возраст, а «благодарю» — про цену.
 - **Прямая связь с тренером**: на все звонки по факту отвечает тренер
   Александр — этот акцент есть в чате, форме, CTA и FAQ.
 
@@ -122,6 +135,6 @@ public/
    Аватары тренеров — `src/components/sections/Coaches.tsx`.
 2. **Цена**: акция «от 3 900 ₽/мес» помечена как временная — не забудьте
    обновить/снять её после набора (`PRICE_OLD`, `PRICE_NEW` в `src/content.ts`
-   и текст FAQ в `index.html`).
+   и текст FAQ в `index.html`). Рассинхрон поймает `npm run check`.
 3. **Аналитика**: добавьте Яндекс.Метрику/GA4 в `index.html`.
 4. **Форма**: подключите CRM/бэкенд (см. выше).

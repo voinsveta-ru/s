@@ -56,7 +56,7 @@ export function Testimonials() {
             <button
               type="button"
               className="btn btn-gold px-5 py-2.5 text-[13px]"
-              onClick={() => open({})}
+              onClick={() => open()}
             >
               Записаться бесплатно
               <Icon name="arrow" className="h-4 w-4" />

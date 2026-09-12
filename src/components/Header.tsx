@@ -3,6 +3,8 @@ import { NAV_LINKS, PHONE_DISPLAY, PHONE_HREF } from "../content";
 import { Icon } from "./Icons";
 import { LogoMark } from "./ui";
 
+const MOBILE_NAV_ID = "mobile-navigation";
+
 export function Header() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -13,6 +15,26 @@ export function Header() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  /* На десктопе мобильное меню скрыто — сбрасываем состояние,
+     иначе шапка остаётся «залипшей» после поворота экрана/ресайза */
+  useEffect(() => {
+    if (!open) return;
+    const desktop = window.matchMedia("(min-width: 64rem)");
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setOpen(false);
+    };
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    if (desktop.matches) setOpen(false);
+    desktop.addEventListener("change", onChange);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      desktop.removeEventListener("change", onChange);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   const solid = scrolled || open;
 
@@ -70,6 +92,7 @@ export function Header() {
           type="button"
           className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-paper-50 lg:hidden"
           aria-expanded={open}
+          aria-controls={MOBILE_NAV_ID}
           aria-label={open ? "Закрыть меню" : "Открыть меню"}
           onClick={() => setOpen((v) => !v)}
         >
@@ -79,6 +102,7 @@ export function Header() {
 
       {open && (
         <nav
+          id={MOBILE_NAV_ID}
           className="border-t border-white/10 bg-ink-950/95 backdrop-blur-md lg:hidden"
           aria-label="Мобильная навигация"
         >

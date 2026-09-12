@@ -6,6 +6,7 @@ name: Fetch old gallery photos
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
       - ".github/workflows/fetch-old-gallery.yml"
       - "scripts/old-gallery-urls.txt"
@@ -43,7 +44,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B photos/old-site
+          # Ветку продолжаем, а не пересоздаём от main: иначе повторный push
+          # отклонялся бы как non-fast-forward и фото не обновлялись.
+          if git ls-remote --exit-code --heads origin photos/old-site; then
+            git fetch --depth=1 origin photos/old-site
+            git checkout -B photos/old-site FETCH_HEAD
+          else
+            git checkout -B photos/old-site
+          fi
           git add old-photos
           if git diff --cached --quiet; then
             echo "Нечего коммитить"

@@ -19,7 +19,7 @@ export function StickyCta() {
         <button
           type="button"
           className="btn btn-gold flex-1 py-3 text-[13px]"
-          onClick={() => open({})}
+          onClick={() => open()}
         >
           Бесплатная тренировка
         </button>

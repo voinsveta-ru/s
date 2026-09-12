@@ -53,7 +53,7 @@ export function Coaches() {
         </div>
 
         <Reveal>
-          <p className="mt-8 text-center text-xs text-paper-100/45">
+          <p className="mt-8 text-center text-xs text-paper-100/60">
             Приходите знакомиться лично — первая тренировка бесплатна.
           </p>
         </Reveal>

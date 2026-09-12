@@ -6,6 +6,7 @@ import {
   PHONE_DISPLAY,
   PHONE_HREF,
   SCHOOL_NAME,
+  asset,
 } from "../content";
 import { Icon } from "./Icons";
 import { LogoMark } from "./ui";
@@ -27,13 +28,13 @@ export function Footer() {
             Развиваем силу, дисциплину и уверенность через традицию
             шаолиньского ушу.
           </p>
-          <p className="mt-3 text-xs text-paper-100/40">
+          <p className="mt-3 text-xs text-paper-100/60">
             Шаолиньское ушу и кунг-фу для детей и подростков 7–18 лет.
           </p>
         </div>
 
         <nav aria-label="Навигация в подвале">
-          <h3 className="text-xs font-extrabold tracking-[0.22em] text-paper-100/45 uppercase">
+          <h3 className="text-xs font-extrabold tracking-[0.22em] text-paper-100/60 uppercase">
             Разделы
           </h3>
           <ul className="mt-4 space-y-2.5">
@@ -67,7 +68,7 @@ export function Footer() {
         </nav>
 
         <div>
-          <h3 className="text-xs font-extrabold tracking-[0.22em] text-paper-100/45 uppercase">
+          <h3 className="text-xs font-extrabold tracking-[0.22em] text-paper-100/60 uppercase">
             Контакты
           </h3>
           <ul className="mt-4 space-y-3 text-sm">
@@ -105,14 +106,14 @@ export function Footer() {
       </div>
 
       <div className="border-t border-white/10 py-5">
-        <div className="container-x flex flex-col items-center justify-between gap-3 text-xs text-paper-100/45 sm:flex-row">
+        <div className="container-x flex flex-col items-center justify-between gap-3 text-xs text-paper-100/60 sm:flex-row">
           <p>
             © {year} Школа шаолиньского ушу «{SCHOOL_NAME}». Все права
             защищены.
           </p>
           <div className="flex items-center gap-5">
             <a
-              href="privacy.html"
+              href={asset("privacy.html")}
               className="transition-colors hover:text-gold-300"
             >
               Политика конфиденциальности

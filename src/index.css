@@ -34,6 +34,9 @@
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 88px;
+    /* Тёмная схема: нативный <select>, скроллбары и автозаполнение
+       не будут белыми на тёмном фоне */
+    color-scheme: dark;
   }
 
   body {
@@ -103,7 +106,7 @@
     @apply mb-1.5 block text-xs font-bold tracking-wider text-paper-100/60 uppercase;
   }
   .field {
-    @apply w-full rounded-2xl border border-white/10 bg-ink-900/70 px-4 py-3 text-[15px] text-paper-50 transition-colors placeholder:text-paper-100/35 focus:border-gold-400/60 focus:outline-none;
+    @apply w-full rounded-2xl border border-white/10 bg-ink-900/70 px-4 py-3 text-[15px] text-paper-50 transition-colors placeholder:text-paper-100/55 focus:border-gold-400/60 focus:outline-none;
   }
   .field-error {
     @apply mt-1.5 text-xs font-semibold text-cinnabar-400;

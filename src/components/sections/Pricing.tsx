@@ -44,7 +44,7 @@ export function Pricing() {
               <button
                 type="button"
                 className="btn btn-ghost mt-6 w-full"
-                onClick={() => open({})}
+                onClick={() => open()}
               >
                 Записаться бесплатно
               </button>
@@ -64,7 +64,7 @@ export function Pricing() {
               </span>
 
               <div className="mt-5">
-                <s className="text-lg font-semibold text-paper-100/45">
+                <s className="text-lg font-semibold text-paper-100/60">
                   {PRICE_OLD}
                 </s>
                 <div className="mt-1 flex items-end gap-2">
@@ -90,7 +90,7 @@ export function Pricing() {
                 <button
                   type="button"
                   className="btn btn-gold w-full"
-                  onClick={() => open({})}
+                  onClick={() => open()}
                 >
                   Записаться по акции
                   <Icon name="arrow" className="h-4 w-4" />
@@ -110,7 +110,7 @@ export function Pricing() {
         </div>
 
         <Reveal>
-          <p className="mx-auto mt-8 max-w-2xl text-center text-xs leading-relaxed text-paper-100/45">
+          <p className="mx-auto mt-8 max-w-2xl text-center text-xs leading-relaxed text-paper-100/60">
             Итоговая стоимость зависит от группы и программы. Актуальные условия
             и действующие акции уточняйте по телефону у тренера Александра.
           </p>

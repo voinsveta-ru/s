@@ -112,7 +112,7 @@ export function Schedule() {
                     href={mapLink(loc.mapQuery)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group/map relative block h-40 overflow-hidden rounded-2xl border border-white/10 transition-colors hover:border-gold-500/40"
+                    className="relative block h-40 overflow-hidden rounded-2xl border border-white/10 transition-colors hover:border-gold-500/40"
                     aria-label={`Открыть карту: ${loc.address}`}
                   >
                     <MapPlaceholder label={`${loc.city} · ${loc.venue}`} />
